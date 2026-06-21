@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D-Druck Preisrechner (inkl. Arbeitszeit)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--background);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+        }
+        h1, h2, h3 { color: #0f172a; }
+        .grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .filament-row {
+            background: #f1f5f9;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 4px solid var(--primary);
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .btn:hover { background: #1d4ed8; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .total {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🖨️ 3D-Druck Preisrechner (inkl. Arbeitszeit)</h1>
+    
+    <div class="grid">
+        <div>
+            <div class="card">
+                <h2>1. Allgemeine Stundensätze & Marge</h2>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="strompreis">Strompreis Bautzen (€/kWh)</label>
+                        <input type="number" id="strompreis" value="0.3530" step="0.0001" oninput="calculate()">
+                    </div>
+                    <div class="form-group">
+                        <label for="lohn">Eigener Stundenlohn (€/h)</label>
+                        <input type="number" id="lohn" value="30.00" step="1" oninput="calculate()">
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="verbrauch">Drucker-Verbrauch (W/h Ø)</label>
+                        <input type="number" id="verbrauch" value="250" step="10" oninput="calculate()">
+                    </div>
+                    <div class="form-group">
+                        <label for="stundensatz">Verschleiß & Miete (€/h)</label>
+                        <input type="number" id="stundensatz" value="0.50" step="0.10" oninput="calculate()">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="gewinn">Gewinnmarge auf Sachkosten (%)</label>
+                    <input type="number" id="gewinn" value="25" step="5" oninput="calculate()">
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>2. Arbeitszeit (Vorbereitung)</h2>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label for="zeit-cad">Modellierung/CAD (Minuten)</label>
+                        <input type="number" id="zeit-cad" value="30" min="0" oninput="calculate()">
+                    </div>
+                    <div class="form-group">
+                        <label for="zeit-slice">Slicing & Rüstzeit (Minuten)</label>
+                        <input type="number" id="zeit-slice" value="15" min="0" oninput="calculate()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>3. Druckdaten & Zeiten</h2>
+                <div class="form-group">
+                    <label for="laufzeit">Reine Druckzeit (Stunden)</label>
+                    <input type="number" id="laufzeit" value="5" step="0.1" oninput="calculate()">
+                </div>
+                <div class="form-group">
+                    <label for="wechsel">Anzahl Filamentwechsel (MMS)</label>
+                    <input type="number" id="wechsel" value="0" min="0" onchange="toggleMultiColor()">
+                </div>
+                <div id="multicolor-ops" style="display:none;">
+                    <div class="form-group">
+                        <label for="wechselzeit">Dauer pro Wechsel (Sekunden)</label>
+                        <input type="number" id="wechselzeit" value="60" oninput="calculate()">
+                    </div>
+                    <div class="form-group">
+                        <label for="turmgewicht">Gewicht Reinigungsturm (g)</label>
+                        <input type="number" id="turmgewicht" value="50" oninput="calculate()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>4. Filamente</h2>
+                <div id="filament-container">
+                    </div>
+                <button class="btn" onclick="addFilament()">+ Filament hinzufügen</button>
+            </div>
+        </div>
+
+        <div>
+            <div class="card" style="position: sticky; top: 20px;">
+                <h2>📊 Kalkulation</h2>
+                <div id="results">
+                    <div class="result-item"><span>Deine Arbeitszeitkosten:</span> <span id="res-work">0.00 €</span></div>
+                    <div class="result-item"><span>Materialkosten (Modell):</span> <span id="res-mat-mod">0.00 €</span></div>
+                    <div class="result-item" id="res-mat-turm-row" style="display:none;"><span>Materialkosten (Turm):</span> <span id="res-mat-turm">0.00 €</span></div>
+                    <div class="result-item"><span>Stromkosten (Gesamt):</span> <span id="res-strom">0.00 €</span></div>
+                    <div class="result-item"><span>Maschinen-Abnutzung:</span> <span id="res-wear">0.00 €</span></div>
+                    <div class="result-item font-weight-bold"><span>Reine Selbstkosten:</span> <span id="res-netto">0.00 €</span></div>
+                    <div class="result-item total"><span>Endpreis (inkl. Marge):</span> <span id="res-total">0.00 €</span></div>
+                </div>
+                <div style="margin-top: 15px; font-size: 0.85rem; color: #64748b;">
+                    <strong>Info zur Berechnung:</strong> Die Gewinnmarge wird im professionellen Bereich meist nur auf die reinen <em>Sachkosten</em> (Material, Strom, Abnutzung) aufgeschlagen. Dein Stundenlohn ist bereits voll gedeckt und bleibt von der Marge unberührt, damit der Preis fair kalkuliert bleibt.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let filamentCount = 0;
+
+    function addFilament(name = "", price = 22, weight = 150) {
+        filamentCount++;
+        const container = document.getElementById('filament-container');
+        const div = document.createElement('div');
+        div.className = 'filament-row';
+        div.id = `filament-${filamentCount}`;
+        div.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <strong>Filament #${filamentCount}</strong>
+                ${filamentCount > 1 ? `<button class="btn btn-danger" style="padding:2px 8px;" onclick="removeFilament(${filamentCount})">X</button>` : ''}
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                    <label>Preis (€/kg)</label>
+                    <input type="number" class="f-price" value="${price}" step="0.5" oninput="calculate()">
+                </div>
+                <div>
+                    <label>Verbrauch (g)</label>
+                    <input type="number" class="f-weight" value="${weight}" step="1" oninput="calculate()">
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+        calculate();
+    }
+
+    function removeFilament(id) {
+        document.getElementById(`filament-${id}`).remove();
+        calculate();
+    }
+
+    function toggleMultiColor() {
+        const wechsel = parseInt(document.getElementById('wechsel').value) || 0;
+        const opDiv = document.getElementById('multicolor-ops');
+        if(wechsel > 0) {
+            opDiv.style.display = 'block';
+            document.getElementById('res-mat-turm-row').style.display = 'flex';
+        } else {
+            opDiv.style.display = 'none';
+            document.getElementById('res-mat-turm-row').style.display = 'none';
+        }
+        calculate();
+    }
+
+    function calculate() {
+        // Tarife & Sätze
+        const strompreis = parseFloat(document.getElementById('strompreis').value) || 0;
+        const lohnproStunde = parseFloat(document.getElementById('lohn').value) || 0;
+        const verbrauch = parseFloat(document.getElementById('verbrauch').value) || 0;
+        const stundensatz = parseFloat(document.getElementById('stundensatz').value) || 0;
+        const gewinn = parseFloat(document.getElementById('gewinn').value) || 0;
+        
+        // Zeiten
+        const zeitCad = parseFloat(document.getElementById('zeit-cad').value) || 0;
+        const zeitSlice = parseFloat(document.getElementById('zeit-slice').value) || 0;
+        const laufzeit = parseFloat(document.getElementById('laufzeit').value) || 0;
+        const wechsel = parseInt(document.getElementById('wechsel').value) || 0;
+        const wechselzeit = parseFloat(document.getElementById('wechselzeit').value) || 0;
+        const turmgewicht = parseFloat(document.getElementById('turmgewicht').value) || 0;
+
+        // 1. Arbeitszeit berechnen (in Stunden umrechnen)
+        const gesamtArbeitszeitStunden = (zeitCad + zeitSlice) / 60;
+        const arbeitskosten = gesamtArbeitszeitStunden * lohnproStunde;
+
+        // 2. Materialkosten
+        let materialKostenModell = 0;
+        let gesamtGewichtModell = 0;
+        const prices = document.querySelectorAll('.f-price');
+        const weights = document.querySelectorAll('.f-weight');
+        
+        prices.forEach((p, index) => {
+            const preisProGramm = (parseFloat(p.value) || 0) / 1000;
+            const gewicht = parseFloat(weights[index].value) || 0;
+            materialKostenModell += preisProGramm * gewicht;
+            gesamtGewichtModell += gewicht;
+        });
+
+        let materialKostenTurm = 0;
+        if(wechsel > 0 && gesamtGewichtModell > 0) {
+            const durchschnittsPreisProGramm = materialKostenModell / gesamtGewichtModell;
+            materialKostenTurm = durchschnittsPreisProGramm * turmgewicht;
+        }
+
+        // 3. Maschinelle Zeiten & Strom (Wechselzeit schlägt auf)
+        const zusatzZeitWechsel = (wechsel * wechselzeit) / 3600;
+        const gesamtMaschinen Zeit = laufzeit + zusatzZeitWechsel;
+        
+        const stromKostenGesamt = (gesamtMaschinenZeit * (verbrauch / 1000)) * strompreis;
+        const abnutzung = gesamtMaschinenZeit * stundensatz;
+
+        // 4. Kalkulation Zusammenfassung
+        const sachkosten = materialKostenModell + materialKostenTurm + stromKostenGesamt + abnutzung;
+        const selbstkostenNetto = sachkosten + arbeitskosten;
+        
+        // Marge schlägt nur auf Sachkosten auf, Arbeitszeit ist Eigenlohn
+        const endpreis = (sachkosten * (1 + (gewinn / 100))) + arbeitskosten;
+
+        // Ausgeben
+        document.getElementById('res-work').innerText = arbeitskosten.toFixed(2) + " €";
+        document.getElementById('res-mat-mod').innerText = materialKostenModell.toFixed(2) + " €";
+        document.getElementById('res-mat-turm').innerText = materialKostenTurm.toFixed(2) + " €";
+        document.getElementById('res-strom').innerText = stromKostenGesamt.toFixed(2) + " €";
+        document.getElementById('res-wear').innerText = abnutzung.toFixed(2) + " €";
+        document.getElementById('res-netto').innerText = selbstkostenNetto.toFixed(2) + " €";
+        document.getElementById('res-total').innerText = endpreis.toFixed(2) + " €";
+    }
+
+    // Initiales Filament laden
+    addFilament("Hauptmaterial", 22.00, 150);
+</script>
+
+</body>
+</html>
